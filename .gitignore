@@ -1,0 +1,16 @@
+﻿__pycache__/
+*.pyc
+*.pyo
+sim/build/
+sim/Results/
+*.vvp
+*.vcd
+*.fsdb
+*.wlf
+*.pb
+*.sdb
+*.qdb
+*.qpg
+*.qtl
+*.rlx
+top/
