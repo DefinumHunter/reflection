@@ -28,12 +28,18 @@ USE_SUM   = 0b10   # mux1 <- in_a, mux2 <- sat(sum1 +/- sum2), sub decides
 USE_LOCAL = 0b11   # mux1 <- in_a, mux2 <- local_data
 
 
-def sum_sat(sum1, sum2, sub):
-    """sum1 +/- sum2 (32-bit signed), saturated. X in -> X out."""
+def sum_sat(sum1, sum2, sub, tags: list = None):
+    """sum1 +/- sum2 (32-bit signed), saturated. X in -> X out.
+    If `tags` is given, the branches taken are appended to it (for coverage)."""
     if sum1 is None or sum2 is None or sub is None:
         return None
     a, b = to_signed(sum1), to_signed(sum2)
-    return saturate(a - b if sub else a + b)
+    raw = a - b if sub else a + b
+    if tags is not None:
+        tags.append("sum_sub" if sub else "sum_add")
+        tags.append("sum_sat_pos" if raw > 0x7FFFFFFF else
+                    "sum_sat_neg" if raw < -0x80000000 else "sum_sat_none")
+    return saturate(raw)
 
 
 class PeInputMux:
@@ -53,6 +59,7 @@ class PeInputMux:
 
     def __init__(self, sum1=None, sum2=None, mux1=None, mux2=None, id=None,
                  a_out=None, b_out=None, out_id=None, out_vld=None, out_sel=None):
+        self.tags = []                      # coverage tags, collected by the model
         self.sum1, self.sum2, self.mux1, self.mux2, self.id = sum1, sum2, mux1, mux2, id
         self.out = {"a_out": a_out, "b_out": b_out, "out_id": out_id,
                     "out_vld": out_vld, "out_sel": out_sel}
@@ -73,7 +80,8 @@ class PeInputMux:
                 o["out_id"] = self.id
 
             sel = i["sel"]
-            summed = sum_sat(self.sum1, self.sum2, i["sub"])
+            counted = self.tags if sel == USE_SUM else None      # only when the sum is used
+            summed = sum_sat(self.sum1, self.sum2, i["sub"], counted)
             if sel == LOAD_SUM:
                 self.sum1, self.sum2 = i["in_a"], i["in_b"]
             elif sel in (LOAD_AB, USE_SUM, USE_LOCAL):

@@ -5,9 +5,10 @@
     PLAN      -> what runs, in order
     RTL and Reflection come from Project (hardware/, Components/, Connections.json)
     COMPARE   -> how expected and actual are compared each clock
+    COVERAGE  -> what is counted to know what the run actually exercised
 """
 from Engine.Generator import Directed, Random
-from . import Checks, Protocol, Scenario
+from . import Checks, Coverage, Protocol, Scenario
 from .Protocol import Reset
 
 SEED = 1
@@ -24,3 +25,4 @@ PLAN = [
 ]
 
 COMPARE = Checks.compare
+COVERAGE = Coverage.POINTS

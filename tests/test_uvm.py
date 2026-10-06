@@ -67,3 +67,35 @@ def test_bench_stops_on_wiring_bug_before_simulating(tmp_path):
     files = broken("pe_mac_wrapper", tmp_path, "pe_mac_wrapper.sv",
                    ".sel    (mux_out_sel),", ".sel    (mac_sel_in),")
     assert run("pe_mac_wrapper", tmp_path, sources=files) == 1
+
+
+# --- coverage through the bench ---------------------------------------------------
+
+@pytest.mark.parametrize("module", ["mac_q16", "pe_mac_wrapper"])
+def test_bench_coverage_equals_model_only_coverage(tmp_path, module):
+    """The tags counted in the simulation come from the model fed by the input
+    monitor, i.e. from what the DUT really saw. They must be the same as in a
+    model-only run of the same test."""
+    from Engine import Coverage
+    assert run(module, tmp_path) == 0
+    bench = Coverage.load(tmp_path / "sim" / "coverage.json")
+    assert bench == Project.dry_run(module)
+    assert Coverage.holes(bench) == {}
+
+
+def test_regression_over_seeds_merges_coverage(tmp_path):
+    from Engine import Coverage
+    from Engine.Run import regress
+    failed, merged = regress("mac_q16", 3, build_dir=tmp_path / "sim")
+    assert failed == []
+    one = Project.dry_run("mac_q16", 1)
+    assert merged["points"]["vld"]["hits"]["1"] > 2 * one["points"]["vld"]["hits"]["1"]
+    assert Coverage.load(tmp_path / "sim" / "coverage_merged.json") == merged
+
+
+def test_coverage_is_saved_even_when_the_scoreboard_fails(tmp_path):
+    files = broken("mac_q16", tmp_path, "mac_q16.sv",
+                   "assign round  = guard & (sticky | lsb);",
+                   "assign round  = guard & sticky;")
+    assert run("mac_q16", tmp_path, sources=files) == 1
+    assert (tmp_path / "sim" / "coverage.json").exists()

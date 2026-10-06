@@ -30,8 +30,9 @@ MAC_OUTPUT_SPEC = {
 # MAC_BASIC_CORNERS, MAC_VALID_DROP_RACE, MAC_PLACEMENTS — unchanged
 
 
-def mac_q16_golden(inputs: dict) -> dict:
-    """The arithmetic only: Q16 multiply, banker's rounding, saturation."""
+def mac_q16_golden(inputs: dict, tags: list = None) -> dict:
+    """The arithmetic only: Q16 multiply, banker's rounding, saturation.
+    If `tags` is given, the branches taken are appended to it (for coverage)."""
     a = to_signed(inputs.get("in_a", 0))
     b = to_signed(inputs.get("in_b", 0))
     prod = a * b
@@ -42,6 +43,12 @@ def mac_q16_golden(inputs: dict) -> dict:
     lsb    = (res_calculated & 1)  != 0
     if guard and (sticky or lsb):
         res_calculated += 1
+    if tags is not None:
+        tags.append("round_down" if not guard else
+                    "round_up" if sticky else
+                    "round_tie_up" if lsb else "round_tie_stay")
+        tags.append("sat_pos" if res_calculated > 0x7FFFFFFF else
+                    "sat_neg" if res_calculated < -0x80000000 else "sat_none")
     return {"out_res": saturate(res_calculated)}
 
 
@@ -77,6 +84,7 @@ class MacQ16:
     def __init__(self, PIPELINE_STAGES=4, pipe=None, vld_pipe=None, sel_pipe=None,
                  id_pipe=None):
         self.n = PIPELINE_STAGES
+        self.tags = []                      # coverage tags, collected by the model
         self.pipe = _fill(pipe, self.n)
         self.id_pipe = _fill(id_pipe, self.n)
         self.vld_pipe = _fill(vld_pipe, self.n)
@@ -97,7 +105,8 @@ class MacQ16:
 
         # clk edge. Data and id pipes have no reset: they move every cycle.
         a, b = i["in_a"], i["in_b"]
-        res = None if a is None or b is None else mac_q16_golden(i)["out_res"]
+        counted = self.tags if i["in_vld"] == 1 else None    # only real multiplies count
+        res = None if a is None or b is None else mac_q16_golden(i, counted)["out_res"]
         self.pipe = [res] + self.pipe[:-1]
         self.id_pipe = [i["in_id"]] + self.id_pipe[:-1]
 

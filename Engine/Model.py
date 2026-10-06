@@ -44,6 +44,15 @@ class _Inst:
                            f"missing outputs {sorted(missing)}, unknown outputs {sorted(extra)}")
         return out
 
+    def take_tags(self) -> list:
+        """Coverage tags the golden collected during this tick (and forget them)."""
+        tags = getattr(self.golden, "tags", None)
+        if not tags:
+            return []
+        taken = list(tags)
+        tags.clear()
+        return taken
+
 
 class Model:
     def __init__(self, netlist: Netlist, components: dict,
@@ -68,6 +77,7 @@ class Model:
             for net in i.in_nets:
                 self.readers[net].append(i)
         self.cycle = 0
+        self.tags = []
 
     @classmethod
     def from_rtl(cls, files: Iterable[str], top: str, components: dict,
@@ -99,6 +109,7 @@ class Model:
             self.held[name] = v
 
         values, settled = self.values, [False] * len(self.values)
+        self.tags = []        # [(instance path, [tag, ...])] reported in this cycle
 
         def settle(net, v):
             values[net] = v
@@ -119,6 +130,9 @@ class Model:
             i = ready.pop()
             out = i.fire(values)
             fired += 1
+            tags = i.take_tags()
+            if tags:
+                self.tags.append((i.leaf.path, tags))
             for p in i.wait:
                 i.pending[p] = out[p]
             for p, net in i.comb.items():

@@ -24,6 +24,10 @@ class LeafSpec:
                                     Must return every RTL output port.
              start() -> dict        optional. Values of waiting outputs at
                                     cycle 0. Without it they start as None (X).
+             tags                   optional list. The golden appends a name
+                                    whenever it takes a branch worth counting
+                                    ("sat_pos"); the model collects and clears
+                                    it after every tick, for coverage.
 
     comb   : outputs that do NOT wait: the value tick() returns is visible in
              the same cycle. Every other output waits: the value tick()

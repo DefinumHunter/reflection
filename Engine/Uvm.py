@@ -12,6 +12,8 @@ Timing (the same convention as Model.step() and tests/icarus.py):
                 edge (power-up), so the model also ticks on it, as the RTL does.
     Predictor   feeds each sampled input row to Model.step() -> expected row c.
     Scoreboard  compares expected row c with sampled output row c.
+    Tags        the predictor also publishes the coverage tags the goldens
+                reported in that cycle; TagCollector feeds them to the coverage.
 """
 import cocotb
 from cocotb.triggers import FallingEdge, ReadOnly, RisingEdge, Timer
@@ -102,15 +104,28 @@ class Monitor(uvm_component):
 
 
 class Predictor(uvm_subscriber):
-    """Sampled inputs -> Model.step() -> expected outputs."""
+    """Sampled inputs -> Model.step() -> expected outputs (and coverage tags)."""
 
     def __init__(self, name, parent, model):
         super().__init__(name, parent)
         self.model = model
         self.ap = uvm_analysis_port("ap", self)
+        self.tags_ap = uvm_analysis_port("tags_ap", self)
 
     def write(self, inputs):
         self.ap.write(self.model.step(inputs))
+        self.tags_ap.write(self.model.tags)
+
+
+class TagCollector(uvm_subscriber):
+    """Coverage only observes: counts the tags the goldens report."""
+
+    def __init__(self, name, parent, coverage):
+        super().__init__(name, parent)
+        self.coverage = coverage
+
+    def write(self, tags):
+        self.coverage.sample_tags(tags)
 
 
 class Scoreboard(uvm_component):
@@ -167,9 +182,10 @@ class Scoreboard(uvm_component):
 class Env(uvm_env):
     """dut, model and the signal lists are passed in by the test."""
 
-    def __init__(self, name, parent, dut, model, clock="clk", compare=exact):
+    def __init__(self, name, parent, dut, model, clock="clk", compare=exact, coverage=None):
         super().__init__(name, parent)
         self.dut, self.model, self.clock, self.compare = dut, model, clock, compare
+        self.coverage = coverage          # Engine.Coverage.Coverage, or None
 
     def build_phase(self):
         clk = getattr(self.dut, self.clock)
@@ -180,9 +196,13 @@ class Env(uvm_env):
         self.out_mon = Monitor("out_mon", self, clk, handles(self.model.outputs))
         self.predictor = Predictor("predictor", self, self.model)
         self.scoreboard = Scoreboard("scoreboard", self, self.compare)
+        if self.coverage is not None:
+            self.tag_collector = TagCollector("tag_collector", self, self.coverage)
 
     def connect_phase(self):
         self.driver.seq_item_port.connect(self.seqr.seq_item_export)
         self.in_mon.ap.connect(self.predictor.analysis_export)
         self.predictor.ap.connect(self.scoreboard.exp_export)
         self.out_mon.ap.connect(self.scoreboard.act_export)
+        if self.coverage is not None:
+            self.predictor.tags_ap.connect(self.tag_collector.analysis_export)

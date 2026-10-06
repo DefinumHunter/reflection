@@ -14,6 +14,7 @@ from pathlib import Path
 
 from Engine.Connections import check_file
 from Engine.Core import find_leaves
+from Engine.Coverage import Coverage
 from Engine.Generator import Generator
 from Engine.Model import Model
 from Engine.Netlist import load
@@ -73,7 +74,7 @@ def model(module: str, params=None, init=None, check_connections=True, files=Non
 
 
 def test(module: str):
-    """Modules/<module>/Test.py: SEED, IDLE, RULES, PLAN, COMPARE."""
+    """Modules/<module>/Test.py: SEED, IDLE, RULES, PLAN, COMPARE, COVERAGE."""
     tb(module)
     return importlib.import_module(f"{MODULES_DIR.name}.{module}.Test")
 
@@ -84,3 +85,29 @@ def stimulus(module: str, netlist, seed=None) -> Generator:
     t = test(module)
     return Generator(t.PLAN, t.RULES, t.IDLE, list(netlist.inputs), netlist.widths,
                      t.SEED if seed is None else seed)
+
+
+def coverage(module: str):
+    """Fresh coverage counters for the module's COVERAGE points, or None if
+    its Test.py does not list any."""
+    points = getattr(test(module), "COVERAGE", None)
+    return Coverage(points) if points else None
+
+
+def dry_run(module: str, seed=None, params=None, tail=20) -> dict:
+    """The module's test on the model only, no simulator: returns the coverage
+    data. Fast (well under a second), for tuning scenarios and coverage."""
+    m = model(module, params=params)
+    stim = stimulus(module, m.netlist, seed)
+    cov = coverage(module)
+    if cov is None:
+        raise ValueError(f"Modules/{module}/Test.py has no COVERAGE")
+    idle = test(module).IDLE
+    for row in stim:
+        m.step(row)
+        cov.sample_tags(m.tags)
+    for _ in range(tail):
+        m.step(idle)
+        cov.sample_tags(m.tags)
+    cov.sample_ops(stim.sent)
+    return cov.data()

@@ -15,6 +15,10 @@ The plan is a list of segments:
     Directed([op, op, ...], gap=0)         these transactions, in this order
     Random({OpA: 50, OpB: 30}, count, gap) `count` transactions, kind by weight
 
+A key in the Random weights is a transaction class, or a function f(ctx) that
+returns a transaction with some fields already set -- a "class" of stimulus,
+e.g. a pair of operands built to saturate. The rules fill what it leaves None.
+
 gap = clocks between the end of one transaction and the start of the next;
 an int or a rule. gap = -1 starts the next transaction in the last clock of
 the previous one (they overlap), -2 in the one before, and so on. Overlapping
@@ -68,6 +72,7 @@ class Generator:
         self.inputs, self.widths, self.seed = list(inputs), widths, seed
         self.ctx = Ctx(seed)
         self.trace = []   # per emitted row: ["#12 MulSum[1]", ...]
+        self.sent = []    # per transaction: (transaction, gap before it), for coverage
 
     # --- transactions ------------------------------------------------------
 
@@ -95,7 +100,8 @@ class Generator:
                 kinds, weights = list(seg.weights), list(seg.weights.values())
                 for _ in range(seg.count):
                     kind = self.ctx.rng.choices(kinds, weights=weights)[0]
-                    yield self.fill(kind()), _value(seg.gap, self.ctx)
+                    op = kind() if isinstance(kind, type) else kind(self.ctx)
+                    yield self.fill(op), _value(seg.gap, self.ctx)
             else:
                 raise GeneratorError(f"unknown plan segment {seg!r}")
 
@@ -162,6 +168,7 @@ class Generator:
                     slot[sig] = v
                 owners.setdefault(clock, []).append(label)
             self.ctx.history.append(op)
+            self.sent.append((op, gap))
             end = max(end, start + len(cycles))
             prev = op
         yield from flush(end)
