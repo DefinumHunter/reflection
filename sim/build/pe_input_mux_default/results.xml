@@ -1,0 +1,6 @@
+<testsuites name="results">
+  <testsuite name="all" package="all">
+    <property name="random_seed" value="1783354860" />
+    <testcase name="test_generic" classname="test_pe_input_mux" file="D:\FPGA\Diplom_Verefication\sim\build\pe_input_mux_default\test_pe_input_mux.py" lineno="42" time="0.02718329429626465" sim_time_ns="2210.0" ratio_time="81299.93281585757" />
+  </testsuite>
+</testsuites>
