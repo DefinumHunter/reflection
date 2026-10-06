@@ -1,33 +1,6 @@
 # Components/MacNode.py
-from Engine.Generators import SignalSpec, Placement
 from Engine.Core import LeafSpec
 from Components.Fixed import to_signed, saturate
-
-_CORNER_POOL = [
-    0x00000000, 0x00010000, 0x00008000,
-    0x7FFFFFFF, 0x80000000, 0xFFFFFFFF,
-    0x00000001, 0xFFFF0000, 0x40000000,
-    0x00020000,
-]
-
-MAC_INPUT_SPEC = {
-    "in_a":   SignalSpec(kind="data", width=32, signed=True,
-                         corner_pool=_CORNER_POOL, corner_probability=0.15),
-    "in_b":   SignalSpec(kind="data", width=32, signed=True,
-                         corner_pool=_CORNER_POOL, corner_probability=0.15),
-    "in_vld": SignalSpec(kind="bit",  width=1,  signed=False, prob_one=0.80),
-    "sel":    SignalSpec(kind="bit",  width=1,  signed=False, prob_one=0.5),
-    "in_id":  SignalSpec(kind="data", width=4,  signed=False),
-}
-MAC_OUTPUT_SPEC = {
-    "out_res": SignalSpec(kind="data", width=32, signed=True),
-    "out_vld": SignalSpec(kind="bit",  width=1,  signed=False),
-    "out_sel": SignalSpec(kind="bit",  width=1,  signed=False),
-    "out_id":  SignalSpec(kind="data", width=4,  signed=False),
-    "busy":    SignalSpec(kind="bit",  width=1,  signed=False),
-}
-
-# MAC_BASIC_CORNERS, MAC_VALID_DROP_RACE, MAC_PLACEMENTS — unchanged
 
 
 def mac_q16_golden(inputs: dict, tags: list = None) -> dict:
@@ -124,8 +97,6 @@ class MacQ16:
 
 MacNode = LeafSpec(
     module="mac_q16",
-    input_specs=MAC_INPUT_SPEC,
-    output_specs=MAC_OUTPUT_SPEC,
     golden=MacQ16,
     comb={"busy"},
 )

@@ -1,25 +1,6 @@
 # Components/MuxNode.py
-from Engine.Generators import SignalSpec
 from Engine.Core import LeafSpec
 from Components.Fixed import to_signed, saturate
-
-MUX_INPUT_SPEC = {
-    "local_data": SignalSpec(kind="data", width=32, signed=True),
-    "sub":        SignalSpec(kind="bit",  width=1,  signed=False, prob_one=0.5),
-    "in_a":       SignalSpec(kind="data", width=32, signed=True),
-    "in_b":       SignalSpec(kind="data", width=32, signed=True),
-    "sel":        SignalSpec(kind="data", width=2,  signed=False),
-    "in_id":      SignalSpec(kind="data", width=4,  signed=False),
-    "issue_vld":  SignalSpec(kind="bit",  width=1,  signed=False, prob_one=0.5),
-    "issue_sel":  SignalSpec(kind="bit",  width=1,  signed=False, prob_one=0.5),
-}
-MUX_OUTPUT_SPEC = {
-    "a_out":   SignalSpec(kind="data", width=32, signed=True),
-    "b_out":   SignalSpec(kind="data", width=32, signed=True),
-    "out_id":  SignalSpec(kind="data", width=4,  signed=False),
-    "out_vld": SignalSpec(kind="bit",  width=1,  signed=False),
-    "out_sel": SignalSpec(kind="bit",  width=1,  signed=False),
-}
 
 # sel modes
 LOAD_AB   = 0b00   # mux1 <- in_a, mux2 <- in_b
@@ -94,7 +75,5 @@ class PeInputMux:
 
 MuxNode = LeafSpec(
     module="pe_input_mux",
-    input_specs=MUX_INPUT_SPEC,
-    output_specs=MUX_OUTPUT_SPEC,
     golden=PeInputMux,
 )

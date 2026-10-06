@@ -33,13 +33,8 @@ class LeafSpec:
              the same cycle. Every other output waits: the value tick()
              returns becomes visible at the start of the next cycle.
              Longer latency is the golden's own business (its own pipeline).
-
-    input_specs / output_specs: SignalSpec dicts for stimulus generation.
-             The model does not use them; ports come from the RTL.
     """
     module: str
-    input_specs: dict
-    output_specs: dict
     golden: Callable[..., Any]
     comb: frozenset = field(default_factory=frozenset)
 

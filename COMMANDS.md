@@ -2,6 +2,8 @@
 
 Всё выполняется в WSL, в папке проекта `~/reflection`, с активным окружением.
 
+Как написать тест для нового модуля, описано в `GUIDE.md`.
+
 ## Каждый раз, когда открываешь консоль
 
 ```bash
@@ -50,7 +52,7 @@ python -m Engine.Run pe_mac_wrapper seeds=20        # real simulation on 20 seed
 git diff                                     # look at what changed
 git add -A
 git commit -m "stepN: short description"
-git push origin v2
+git push github v2
 ```
 
 `update.sh` сам проверяет, что у тебя нет незакоммиченных изменений, распаковывает архив поверх проекта, показывает файлы, которых нет в новой версии (их удалить руками, если они убраны), и запускает тесты. Коммит он не делает.
@@ -73,7 +75,7 @@ git diff --staged              # changes that will go into the commit
 git add -A                     # stage everything
 git add path/to/file           # stage one file
 git commit -m "message"        # commit
-git push origin v2             # send the v2 branch to the repo on D:
+git push github v2             # send the v2 branch to GitHub
 git log --oneline -15          # last 15 commits
 git log --oneline -- Engine/   # commits that touched Engine/
 git show HEAD                  # what the last commit changed
@@ -101,12 +103,12 @@ git merge try-something        # bring a finished branch into the current one
 
 ## Копия на диске D
 
-`D:\FPGA\reflection` — второй репозиторий, куда уходит `git push origin v2`. Файлы в той папке меняются, только если там переключить или обновить ветку:
+`D:\FPGA\reflection` — вторая копия, она тянет с GitHub. Коммитить в ней не надо, только обновлять:
 
 ```bash
 cd /mnt/d/FPGA/reflection
 git switch v2                  # once: show v2 files in the Windows folder
-git pull                       # after later pushes: update the files
+git pull origin v2             # after later pushes: update the files
 ```
 
 ## WSL и пути

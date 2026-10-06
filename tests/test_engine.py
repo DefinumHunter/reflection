@@ -27,8 +27,8 @@ class Reg8:
         return {"q": self.q}
 
 
-INC = LeafSpec(module="inc8", input_specs={}, output_specs={}, golden=Inc8, comb={"y"})
-REG = LeafSpec(module="reg8", input_specs={}, output_specs={}, golden=Reg8)
+INC = LeafSpec(module="inc8", golden=Inc8, comb={"y"})
+REG = LeafSpec(module="reg8", golden=Reg8)
 FIXTURES = {"inc8": INC, "reg8": REG}
 
 

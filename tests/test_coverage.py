@@ -144,7 +144,7 @@ class Inc8Tagged:
 
 
 def test_model_collects_tags_with_the_instance_path_every_cycle():
-    spec = LeafSpec(module="inc8", input_specs={}, output_specs={}, golden=Inc8Tagged, comb={"y"})
+    spec = LeafSpec(module="inc8", golden=Inc8Tagged, comb={"y"})
     m = Model.from_rtl([FIX], "tb_chain", {"inc8": spec})
     m.step({"x": 4})                                   # u1 sees 4, u2 sees 5, u3 sees 6
     assert sorted(m.tags) == [("u1", ["even"]), ("u2", ["odd"]), ("u3", ["even"])]
