@@ -1,0 +1,6 @@
+<testsuites name="results">
+  <testsuite name="all" package="all">
+    <property name="random_seed" value="1783354863" />
+    <testcase name="test_generic" classname="test_pe_mac_chain" file="D:\FPGA\Diplom_Verefication\sim\build\pe_mac_chain_default\test_pe_mac_chain.py" lineno="42" time="0.03709053993225098" sim_time_ns="2250.0" ratio_time="60662.36846672538" />
+  </testsuite>
+</testsuites>
