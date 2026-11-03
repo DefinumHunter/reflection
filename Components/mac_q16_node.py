@@ -105,7 +105,7 @@ class MacQ16:
         return {**self._registered(), "busy": busy}
 
 
-MacNode = LeafSpec(
+NODE = LeafSpec(
     module="mac_q16",
     golden=MacQ16,
     comb={"busy"},

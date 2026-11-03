@@ -124,7 +124,7 @@ class PeInputMux:
         return dict(o)
 
 
-MuxNode = LeafSpec(
+NODE = LeafSpec(
     module="pe_input_mux",
     golden=PeInputMux,
 )

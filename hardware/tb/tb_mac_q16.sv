@@ -8,17 +8,15 @@ module tb_mac_q16;
 
     logic               clk;
     logic               rst_n;
-
     logic               in_vld;
     logic signed [31:0] in_a;
     logic signed [31:0] in_b;
-    logic        [3:0]  in_id;
+    logic [3:0]         in_id;
     logic               in_ring_final;
     logic               in_sub_post;
-
     logic               out_vld;
     logic signed [31:0] out_res;
-    logic        [3:0]  out_id;
+    logic [3:0]         out_id;
     logic               out_ring_final;
     logic               out_sub_post;
     logic               busy;

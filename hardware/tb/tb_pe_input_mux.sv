@@ -1,24 +1,28 @@
-`timescale 1ns/1ps
+`timescale 1ns / 1ps
+
+// Reflection TB, made by Engine/MakeTb.py from the ports of pe_input_mux.
+// No logic here: the bench drives and samples these signals.
 
 module tb_pe_input_mux;
     logic               clk;
     logic               rst_n;
-    logic signed [31:0] local_data;
-    logic               sub;
     logic signed [31:0] in_a;
     logic signed [31:0] in_b;
-    logic         [1:0] sel;
-    logic         [4:0] in_id;
-    logic               compare_id;
+    logic signed [31:0] local_data;
+    logic [1:0]         sel;
+    logic               sub_pre;
     logic               issue_vld;
+    logic               ring_final;
+    logic               sub_post;
+    logic [3:0]         in_id;
     logic signed [31:0] a_out;
     logic signed [31:0] b_out;
-    logic         [4:0] out_id;
     logic               out_vld;
+    logic               out_ring_final;
+    logic               out_sub_post;
+    logic [3:0]         out_id;
 
     pe_input_mux dut (.*);
-
-    // pe_input_mux_sva_icarus u_sva (.clk(clk), .rst_n(rst_n));
 
     initial begin
         $dumpfile("waves.vcd");

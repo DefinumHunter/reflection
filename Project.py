@@ -74,7 +74,8 @@ def rtl_modules() -> list:
     from pyslang import syntax
     names = []
     for f in rtl_sources():
-        for m in syntax.SyntaxTree.fromFile(str(f)).root.members:
+        tree = syntax.SyntaxTree.fromFile(str(f))   # keep it alive while reading its nodes
+        for m in tree.root.members:
             if m.kind == syntax.SyntaxKind.ModuleDeclaration:
                 names.append(m.header.name.valueText)
     return names
