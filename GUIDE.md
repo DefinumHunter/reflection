@@ -9,7 +9,7 @@
 | Что | Откуда | Кто пишет |
 |---|---|---|
 | Соединения между модулями | RTL, разбирается автоматически | никто |
-| Поведение модуля | golden-класс в `Components/` | ты |
+| Поведение модуля | golden в `Components/<модуль>_node.py` | ты |
 | Список входов и выходов, ширины | TB в `hardware/tb/` | `python -m Engine.MakeTb <модуль>` |
 | Как операция выглядит по тактам | `Modules/<модуль>/Protocol.py` | ты |
 | Какие значения и в каком порядке подавать | `Modules/<модуль>/Scenario.py` | ты |
@@ -24,7 +24,7 @@
 ## Порядок работы
 
 1. Положить RTL в `hardware/rtl/`, сделать TB: `python -m Engine.MakeTb <модуль>`.
-2. Написать golden для каждого модуля с логикой, которого ещё нет в `Components/`.
+2. Написать golden `Components/<модуль>_node.py` для каждого модуля с логикой, у которого его ещё нет.
 3. Создать папку `Modules/<модуль>/` с пятью файлами и пустым `__init__.py`.
 4. Запустить `python -m Engine.Cover <модуль>`, потом `python -m Engine.Run <модуль>`.
 
@@ -76,7 +76,7 @@ endmodule
 
 Каждый модуль RTL относится к одному из двух видов.
 
-**Модуль с логикой** (`always_ff`, `always_comb`, арифметика). Для него пишется golden в `Components/`. Внутрь его RTL система не заглядывает, только читает порты.
+**Модуль с логикой** (`always_ff`, `always_comb`, арифметика). Для него пишется golden в `Components/<модуль>_node.py`. Внутрь его RTL система не заглядывает, только читает порты.
 
 **Модуль-сборка** (только экземпляры других модулей и провода). Для него ничего писать не нужно: соединения читаются из RTL. `pe_mac_wrapper` — такой модуль, поэтому у него нет своего компонента.
 
@@ -84,21 +84,40 @@ endmodule
 
 ### Описание компонента
 
+Файл компонента называется по модулю RTL с припиской `_node`, и среда находит его сама, по имени:
+
+```
+hardware/rtl/mac_q16.sv      ->   Components/mac_q16_node.py
+hardware/tb/tb_mac_q16.sv
+Modules/mac_q16/
+```
+
+В файле одна обязательная переменная `NODE`:
+
 ```python
-# Components/MacNode.py
+# Components/mac_q16_node.py
 from Engine.Core import LeafSpec
 
 class MacQ16:
     ...
 
-MacNode = LeafSpec(
-    module="mac_q16",     # RTL module name
+NODE = LeafSpec(
     golden=MacQ16,        # class, one object per RTL instance
     comb={"busy"},        # outputs visible in the same clock (optional)
 )
 ```
 
-Регистрировать компонент нигде не нужно: система сама находит все объекты `LeafSpec` в папке `Components/`. Два компонента для одного модуля RTL — ошибка.
+Регистрировать компонент нигде не нужно. Модуль RTL определяется по имени файла, поэтому `module=` в `LeafSpec` не пишется.
+
+Файлы в `Components/` без приписки `_node` компонентами не считаются: туда можно класть общие вспомогательные функции для нескольких golden.
+
+Ошибки поиска:
+
+| Сообщение | Причина |
+|---|---|
+| `Components/xxx_node.py: no such module in hardware/rtl` | опечатка в имени файла |
+| `xxx_node.py: needs NODE = LeafSpec(...)` | в файле нет `NODE` |
+| `... has no component; add Components/xxx_node.py` | у модуля с логикой нет файла |
 
 ### Класс golden
 
@@ -187,7 +206,7 @@ def cycles(self):
 
 ```python
 from dataclasses import dataclass
-from Components.MuxNode import LOAD_SUM, USE_SUM
+from Components.pe_input_mux_node import LOAD_SUM, USE_SUM
 
 IDLE = dict(rst_n=1, local_data=0, sub=0, in_a=0, in_b=0,
             sel=LOAD_SUM, in_id=0, issue_vld=0, mac_sel_in=0)
@@ -452,7 +471,7 @@ TESTS=1 PASS=1 FAIL=0
 | `scoreboard compared nothing` | Модель весь прогон выдавала X. | Нет сброса в начале `PLAN` или golden возвращает `None`. |
 | `ConnectionMismatch: ... expected, but in the RTL ... is driven by ...` | RTL соединён не так, как записано. | RTL или `Connections.json`. |
 | `CombLoopError: ... waits on ...` | Комбинационная петля: экземпляры ждут выходы друг друга. | Лишнее имя в `comb` или настоящая петля в RTL. |
-| `has behavioural logic ... but its module has no component` | Модуль с логикой без golden. | Написать компонент. |
+| `has behavioural logic ... but its module has no component; add Components/xxx_node.py` | Модуль с логикой без golden. | Написать этот файл. |
 | `connection '...' is not supported yet` | В подключении порта выражение, срез или конкатенация. | См. ограничения. |
 | `'x' is an array of N, got ...` | Golden вернул для порта-массива список не той длины. | Golden. |
 | все выходные массивы X в симуляции, в модели нет | Выходной массив в TB объявлен как `logic`. | `wire` в TB или `MakeTb` заново. |
@@ -475,9 +494,9 @@ TESTS=1 PASS=1 FAIL=0
 | Экземпляры внутри сборки | `u_<имя>` | `u_mux`, `u_mac` |
 | Тактовый сигнал, сброс | `clk`, `rst_n` (активный 0) | |
 | Сигналы TB | те же имена, что у портов модуля | подключение через `.*` |
-| Файл компонента | `<Имя>Node.py` | `MacNode.py` |
+| Файл компонента | `Components/<модуль>_node.py` | `mac_q16_node.py` |
 | Класс golden | имя модуля в `CamelCase` | `MacQ16`, `PeInputMux` |
-| Объект `LeafSpec` | `<Имя>Node` | `MacNode` |
+| Объект `LeafSpec` в файле | всегда `NODE` | `NODE = LeafSpec(golden=MacQ16)` |
 | Папка модуля | `Modules/<модуль>/`, имя как у модуля RTL | `Modules/w_normalize/` |
 | Файлы в папке | `Protocol.py`, `Scenario.py`, `Checks.py`, `Coverage.py`, `Test.py` | |
 | Транзакция | `CamelCase`, по смыслу операции | `MulSum`, `Reset` |

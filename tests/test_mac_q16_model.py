@@ -5,7 +5,7 @@ import random
 import pytest
 
 import Project
-from Components.MacNode import mac_q16_golden
+from Components.mac_q16_node import mac_q16_golden
 from tests import icarus
 
 MODULE = "mac_q16"

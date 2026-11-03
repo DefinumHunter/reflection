@@ -125,3 +125,48 @@ def test_golden_returning_wrong_array_size_is_reported():
 def test_one_element_of_a_tb_array_on_a_plain_port():
     m = Model.from_rtl([FIX] + ARR, "tb_pick", ARRAYS)
     assert m.step({"arr[0]": 0, "arr[1]": 41, "arr[2]": 0})["o"] == 42
+
+
+# --- finding components by file name -------------------------------------------
+
+def _package(tmp_path, name, files):
+    import sys
+    pkg = tmp_path / name
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("")
+    for fname, text in files.items():
+        (pkg / fname).write_text(text)
+    sys.path.insert(0, str(tmp_path))
+    return name
+
+
+SPEC = "from Engine.Core import LeafSpec\nclass G:\n    pass\n"
+
+
+def test_components_are_found_by_file_name(tmp_path):
+    from Engine.Core import find_leaves
+    name = _package(tmp_path, "comps_ok", {
+        "inc8_node.py": SPEC + "NODE = LeafSpec(golden=G, comb={'y'})\n",
+        "helpers.py": "raise RuntimeError('helpers are not imported by the search')\n"})
+    found = find_leaves(name)
+    assert list(found) == ["inc8"] and found["inc8"].module == "inc8"
+
+
+def test_component_file_without_node_is_reported(tmp_path):
+    from Engine.Core import find_leaves
+    name = _package(tmp_path, "comps_nonode", {"inc8_node.py": SPEC + "SPEC = LeafSpec(golden=G)\n"})
+    with pytest.raises(ValueError, match="inc8_node.py: needs NODE"):
+        find_leaves(name)
+
+
+def test_component_module_must_match_file_name(tmp_path):
+    from Engine.Core import find_leaves
+    name = _package(tmp_path, "comps_mismatch",
+                    {"inc8_node.py": SPEC + "NODE = LeafSpec(golden=G, module='reg8')\n"})
+    with pytest.raises(ValueError, match="file name says 'inc8'"):
+        find_leaves(name)
+
+
+def test_missing_component_error_names_the_file():
+    with pytest.raises(NetlistError, match="Components/reg8_node.py"):
+        load([FIX], "tb_counter", {"inc8": INC})

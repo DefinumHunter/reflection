@@ -97,23 +97,13 @@ def tb_text(module: str) -> str:
     return "\n".join(lines)
 
 
-def _rtl_modules():
-    names = []
-    for f in Project.rtl_sources():
-        tree = syntax.SyntaxTree.fromFile(str(f))
-        for m in tree.root.members:
-            if m.kind == syntax.SyntaxKind.ModuleDeclaration:
-                names.append(m.header.name.valueText)
-    return names
-
-
 def main(argv):
     if not argv:
         print(__doc__)
         return 2
     if argv[0] == "--all":
         made = 0
-        for m in _rtl_modules():
+        for m in Project.rtl_modules():
             path = Project.TB_DIR / f"tb_{m}.sv"
             if path.exists():
                 continue

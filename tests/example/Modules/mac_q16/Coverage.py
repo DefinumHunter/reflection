@@ -32,7 +32,7 @@ a_corner = Op("a corner", [f"{c:#010x}" for c in CORNERS], of=_corner("a"))
 b_corner = Op("b corner", [f"{c:#010x}" for c in CORNERS], of=_corner("b"))
 reset = Op("reset", ["at start", "mid stream"], of=_reset)
 
-# tags from Components/MacNode.py, only for multiplies with in_vld = 1
+# tags from Components/mac_q16_node.py, only for multiplies with in_vld = 1
 rounding = Tag("rounding", ["round_down", "round_up", "round_tie_stay", "round_tie_up"],
                at_least=20)
 saturation = Tag("saturation", ["sat_none", "sat_pos", "sat_neg"], at_least=20)

@@ -6,7 +6,7 @@ id 0 is reserved for "no transaction", real operations use 1..15.
 """
 from dataclasses import dataclass
 
-from Components.MuxNode import LOAD_AB, LOAD_SUM, USE_LOCAL, USE_SUM
+from Components.pe_input_mux_node import LOAD_AB, LOAD_SUM, USE_LOCAL, USE_SUM
 
 # A clock nobody drives: nothing issued, id 0. sel=LOAD_SUM is the only mode
 # that leaves mux1/mux2 alone (it rewrites sum1/sum2, which every sum

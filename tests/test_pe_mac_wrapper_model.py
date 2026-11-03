@@ -11,8 +11,8 @@ import random
 import pytest
 
 import Project
-from Components.MacNode import mac_q16_golden
-from Components.MuxNode import LOAD_AB, LOAD_SUM, USE_LOCAL, USE_SUM
+from Components.mac_q16_node import mac_q16_golden
+from Components.pe_input_mux_node import LOAD_AB, LOAD_SUM, USE_LOCAL, USE_SUM
 from tests import icarus
 
 MODULE = "pe_mac_wrapper"

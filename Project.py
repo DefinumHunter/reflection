@@ -69,9 +69,27 @@ def sources(module: str) -> list:
     return rtl_sources() + [path]
 
 
+def rtl_modules() -> list:
+    """Names of the modules declared in hardware/rtl/*.sv."""
+    from pyslang import syntax
+    names = []
+    for f in rtl_sources():
+        for m in syntax.SyntaxTree.fromFile(str(f)).root.members:
+            if m.kind == syntax.SyntaxKind.ModuleDeclaration:
+                names.append(m.header.name.valueText)
+    return names
+
+
 @lru_cache(maxsize=None)
 def components() -> dict:
-    return find_leaves(COMPONENTS)
+    """{RTL module: LeafSpec} from Components/<module>_node.py."""
+    found = find_leaves(COMPONENTS)
+    unknown = sorted(set(found) - set(rtl_modules()))
+    if unknown:
+        files = ", ".join(f"{COMPONENTS}/{m}_node.py" for m in unknown)
+        raise ValueError(f"{files}: no such module in {RTL_DIR.relative_to(ROOT)} "
+                         f"(typo in the file name?)")
+    return found
 
 
 def connections_file(module: str):

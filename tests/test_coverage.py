@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 
 import Project
-from Components.MacNode import mac_q16_golden
-from Components.MuxNode import sum_sat
+from Components.mac_q16_node import mac_q16_golden
+from Components.pe_input_mux_node import sum_sat
 from Engine import Coverage as C
 from Engine.Core import LeafSpec
 from Engine.Coverage import Coverage, Cross, Op, Tag

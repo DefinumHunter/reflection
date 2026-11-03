@@ -159,7 +159,7 @@ class _Builder:
         prefix = self.tb.name + "."
         return path[len(prefix):] if path.startswith(prefix) else path
 
-    def _walk(self, scope, is_top: bool):
+    def _walk(self, scope, is_top: bool, module: str = None):
         for m in scope:
             k = m.kind
             if k == SK.Instance:
@@ -170,11 +170,11 @@ class _Builder:
                 self._union_keys(self._keys(a.left, where), self._keys(a.right, where), where)
             elif k == SK.GenerateBlock:
                 if not m.isUninstantiated:
-                    self._walk(m, is_top)
+                    self._walk(m, is_top, module)
             elif k == SK.GenerateBlockArray:
                 for entry in m.entries:
                     if not entry.isUninstantiated:
-                        self._walk(entry, is_top)
+                        self._walk(entry, is_top, module)
             elif k == SK.ProceduralBlock and not is_top:
                 if m.procedureKind in (ast.ProceduralBlockKind.Initial,
                                        ast.ProceduralBlockKind.Final):
@@ -182,7 +182,8 @@ class _Builder:
                 raise NetlistError(
                     f"'{self._rel(scope.hierarchicalPath)}' has behavioural logic "
                     f"({m.procedureKind.name}) but its module has no component; "
-                    f"add a LeafSpec for it or move the logic into a leaf module")
+                    f"add Components/{module}_node.py "
+                    f"or move the logic into a leaf module")
             # the TB's initial/always blocks (dumpfile, clock) are ignored
 
     def _instance(self, inst):
@@ -232,7 +233,7 @@ class _Builder:
             idx = _elements(pc.port.type, where)
             inner_keys = (inner, None) if idx is None else ([f"{inner}[{i}]" for i in idx], idx)
             self._union_keys(inner_keys, self._keys(pc.expression, where), where)
-        self._walk(inst.body, is_top=False)
+        self._walk(inst.body, is_top=False, module=module)
 
     # --- result ---------------------------------------------------------------
     def build(self) -> Netlist:

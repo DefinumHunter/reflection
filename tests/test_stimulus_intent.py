@@ -8,7 +8,7 @@ import pytest
 
 import Project
 from Engine.Fixed import q16, saturate, to_signed
-from Components.MacNode import mac_q16_golden
+from Components.mac_q16_node import mac_q16_golden
 from Engine.Generator import Directed, Generator, Random
 from Modules.mac_q16 import Scenario as MacScenario
 from Modules.mac_q16.Protocol import Mac, Reset as MacReset

@@ -31,7 +31,7 @@ gap = Op("gap", ["overlap", "none", "pause"], of=_gap)
 ident = Op("id", range(1, 16), of=_field("id"))
 mac_sel = Op("mac_sel", [0, 1], of=_field("mac_sel"))
 
-# tags from Components/MuxNode.py, when a sum is actually used (sel = USE_SUM)
+# tags from Components/pe_input_mux_node.py, when a sum is actually used (sel = USE_SUM)
 sum_op = Tag("sum op", ["sum_add", "sum_sub"])
 sum_sat = Tag("sum saturation", ["sum_sat_none", "sum_sat_pos", "sum_sat_neg"], at_least=10)
 
