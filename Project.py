@@ -4,11 +4,18 @@ Everything else asks this file for sources, components and models instead of
 building paths itself. If the project layout changes, only this file changes.
 
     import Project
-    m = Project.model("pe_mac_wrapper")                   # parse + check + build
+    m = Project.model("w_normalize")                      # parse + check + build
     m = Project.model("mac_q16", params={"PIPELINE_STAGES": 6})
-    rows = Project.stimulus("pe_mac_wrapper", m.netlist)   # Modules/<m>/Test.py
+    rows = Project.stimulus("w_normalize", m.netlist)      # Modules/<m>/Test.py
+
+The project root is this folder. Setting REFLECTION_ROOT points it at another
+folder with the same layout (hardware/, Components/, Modules/); the tests use
+that for the worked example in tests/example/. The engine always comes from here.
 """
 import importlib
+import importlib.util
+import os
+import sys
 from functools import lru_cache
 from pathlib import Path
 
@@ -19,27 +26,36 @@ from Engine.Generator import Generator
 from Engine.Model import Model
 from Engine.Netlist import load
 
-ROOT = Path(__file__).resolve().parent
+ENGINE_ROOT = Path(__file__).resolve().parent
+ROOT = Path(os.environ.get("REFLECTION_ROOT") or ENGINE_ROOT).resolve()
+if ROOT != ENGINE_ROOT:
+    # its Components/ and Modules/ packages, not ours, whatever sys.path says
+    for _pkg in ("Components", "Modules"):
+        _spec = importlib.util.spec_from_file_location(
+            _pkg, ROOT / _pkg / "__init__.py", submodule_search_locations=[str(ROOT / _pkg)])
+        sys.modules[_pkg] = importlib.util.module_from_spec(_spec)
+        _spec.loader.exec_module(sys.modules[_pkg])
 
 HARDWARE = ROOT / "hardware"
 RTL_DIR = HARDWARE / "rtl"        # every .sv here is compiled together
-TB_DIR = HARDWARE / "tb"          # one TB per module, only the used one is compiled
+TB_DIR = HARDWARE / "tb"          # tb_<module>.sv, only the used one is compiled
 COMPONENTS = "Components"         # Python package with the LeafSpecs
-MODULES_DIR = ROOT / "Modules"    # per-module verification files (Connections.json, ...)
+MODULES_DIR = ROOT / "Modules"    # Modules/<module>/: the module's test
 
 CLOCKS = ("clk",)
 
-# module under test -> its TB module (file TB_DIR/<tb>.sv)
-MODULES = {
-    "mac_q16":        "tb_mac_q16",
-    "pe_mac_wrapper": "tb_pe_mac_wrapper",
-}
+
+def modules() -> list:
+    """Modules that have a test: every Modules/<module>/ with a Test.py."""
+    return sorted(p.parent.name for p in MODULES_DIR.glob("*/Test.py"))
 
 
 def tb(module: str) -> str:
-    if module not in MODULES:
-        raise KeyError(f"unknown module '{module}'; known: {sorted(MODULES)}")
-    return MODULES[module]
+    """TB module of a module under test: tb_<module>, or TB = "..." in its Test.py."""
+    if module not in modules():
+        raise KeyError(f"unknown module '{module}': no Modules/{module}/Test.py; "
+                       f"known: {modules()}")
+    return getattr(test(module), "TB", f"tb_{module}")
 
 
 def rtl_sources() -> list:
@@ -47,7 +63,10 @@ def rtl_sources() -> list:
 
 
 def sources(module: str) -> list:
-    return rtl_sources() + [TB_DIR / f"{tb(module)}.sv"]
+    path = TB_DIR / f"{tb(module)}.sv"
+    if not path.exists():
+        raise FileNotFoundError(f"no TB for '{module}': expected {path}")
+    return rtl_sources() + [path]
 
 
 @lru_cache(maxsize=None)
@@ -74,8 +93,7 @@ def model(module: str, params=None, init=None, check_connections=True, files=Non
 
 
 def test(module: str):
-    """Modules/<module>/Test.py: SEED, IDLE, RULES, PLAN, COMPARE, COVERAGE."""
-    tb(module)
+    """Modules/<module>/Test.py: SEED, IDLE, RULES, PLAN, COMPARE, COVERAGE (, TB)."""
     return importlib.import_module(f"{MODULES_DIR.name}.{module}.Test")
 
 

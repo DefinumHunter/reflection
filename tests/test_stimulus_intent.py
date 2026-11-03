@@ -7,7 +7,7 @@ because it is already checked cycle-for-cycle against the RTL.
 import pytest
 
 import Project
-from Components.Fixed import q16, saturate, to_signed
+from Engine.Fixed import q16, saturate, to_signed
 from Components.MacNode import mac_q16_golden
 from Engine.Generator import Directed, Generator, Random
 from Modules.mac_q16 import Scenario as MacScenario

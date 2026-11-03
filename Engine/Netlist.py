@@ -10,6 +10,13 @@ structure and is walked into.
 
 The TB is the entry point: its signals are the model's global inputs
 (driven by nobody inside) and outputs (driven by a leaf).
+
+Unpacked arrays (`logic [31:0] d [0:8]`) are split into one net per element,
+named like the element: "d[3]". A leaf sees an array port as a list (see
+Leaf.arrays); the TB, the stimulus and Connections.json see the elements.
+
+Files without `timescale get DEFAULT_TIMESCALE, as simulators do, so the
+RTL may leave it to the TB.
 """
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional
@@ -21,8 +28,24 @@ SK = ast.SymbolKind
 EK = ast.ExpressionKind
 
 
+DEFAULT_TIMESCALE = "1ns/1ps"
+
+
 class NetlistError(Exception):
     pass
+
+
+def _elements(t, where):
+    """Index values of an unpacked array type, left to right; None for a
+    plain signal. Only one unpacked dimension is supported."""
+    if not t.isUnpackedArray:
+        return None
+    if t.arrayElementType.isUnpackedArray:
+        raise NetlistError(f"{where}: arrays with more than one unpacked dimension "
+                           f"are not supported yet")
+    r = t.fixedRange
+    step = 1 if r.right >= r.left else -1
+    return list(range(r.left, r.right + step, step))
 
 
 @dataclass
@@ -30,8 +53,9 @@ class Leaf:
     path: str                 # instance path below the TB, e.g. "dut"
     module: str               # RTL module name, e.g. "mac_q16"
     params: Dict[str, object] # elaborated RTL parameters
-    inputs: Dict[str, int]    # port -> net index
+    inputs: Dict[str, int]    # port -> net index; array ports as "d[0]", "d[1]", ...
     outputs: Dict[str, int]
+    arrays: Dict[str, List[str]] = None   # array port -> its element names, in order
 
 
 @dataclass
@@ -41,7 +65,7 @@ class Netlist:
     inputs: Dict[str, int]    # TB signal -> net, driven from outside
     outputs: Dict[str, int]   # TB signal -> net, driven by a leaf
     leaves: List[Leaf]
-    widths: Dict[str, int]    # TB signal -> bit width
+    widths: Dict[str, int]    # TB signal -> bit width (array elements: "d[3]")
 
 
 def load(files: Iterable[str], top: str, components: dict,
@@ -58,6 +82,7 @@ def _compile(files, top, params) -> ast.Compilation:
     opts = ast.CompilationOptions()
     opts.topModules = {top}
     opts.paramOverrides = [f"{k}={v}" for k, v in params.items()]
+    opts.defaultTimeScale = pyslang.TimeScale.fromString(DEFAULT_TIMESCALE)
     comp = ast.Compilation(pyslang.Bag([opts]))
     for f in files:
         comp.addSyntaxTree(syntax.SyntaxTree.fromFile(str(f)))
@@ -87,16 +112,44 @@ class _Builder:
     def _union(self, a: str, b: str):
         self.parent[self._find(a)] = self._find(b)
 
+    def _union_keys(self, a, b, where):
+        """Join two _keys() results: a signal with a signal, an array with an
+        array element by element (by position, as SystemVerilog assigns them)."""
+        (ka, ia), (kb, ib) = a, b
+        if (ia is None) != (ib is None) or (ia is not None and len(ka) != len(kb)):
+            raise NetlistError(f"{where}: array and signal (or arrays of different "
+                               f"sizes) connected together")
+        for x, y in (zip(ka, kb) if ia is not None else [(ka, kb)]):
+            self._union(x, y)
+
     # --- expressions -> signal keys ---------------------------------------
     def _key(self, e, where: str) -> str:
-        if e.kind == EK.Assignment:          # output port connections
-            return self._key(e.left, where)
-        if e.kind == EK.Conversion and e.isImplicit:
-            return self._key(e.operand, where)
+        """Key of a plain signal (or one element of an array)."""
+        keys = self._keys(e, where)
+        if keys[1] is not None:
+            raise NetlistError(f"{where}: a whole array where one signal is expected")
+        return keys[0]
+
+    def _base(self, e, where: str) -> str:
+        """Key of what an element select indexes into (array or vector)."""
         if e.kind == EK.NamedValue:
             return e.symbol.hierarchicalPath
+        return self._key(e, where)
+
+    def _keys(self, e, where: str):
+        """(key, None) for a plain signal, ([element keys], [indices]) for a whole array."""
+        if e.kind == EK.Assignment:          # output port connections
+            return self._keys(e.left, where)
+        if e.kind == EK.Conversion and e.isImplicit:
+            return self._keys(e.operand, where)
+        if e.kind == EK.NamedValue:
+            base = e.symbol.hierarchicalPath
+            idx = _elements(e.type, where)
+            if idx is None:
+                return base, None
+            return [f"{base}[{i}]" for i in idx], idx
         if e.kind == EK.ElementSelect and e.selector.constant is not None:
-            return f"{self._key(e.value, where)}[{int(e.selector.constant.value)}]"
+            return f"{self._base(e.value, where)}[{int(e.selector.constant.value)}]", None
         raise NetlistError(
             f"{where}: connection '{str(e.syntax).strip() if e.syntax else e.kind}' "
             f"is not supported yet (only plain names and constant element selects)")
@@ -114,7 +167,7 @@ class _Builder:
             elif k == SK.ContinuousAssign:
                 a = m.assignment
                 where = f"assign in {self._rel(scope.hierarchicalPath) or self.tb.name}"
-                self._union(self._key(a.left, where), self._key(a.right, where))
+                self._union_keys(self._keys(a.left, where), self._keys(a.right, where), where)
             elif k == SK.GenerateBlock:
                 if not m.isUninstantiated:
                     self._walk(m, is_top)
@@ -139,46 +192,65 @@ class _Builder:
         if module in self.components:
             params = {}
             for p in inst.body:
-                if p.kind == SK.Parameter:
+                if p.kind == SK.Parameter and not p.isLocalParam:
                     v = p.value.value
                     try:
                         params[p.name] = int(v)
                     except (TypeError, ValueError):
                         params[p.name] = str(v)
-            ins, outs = {}, {}
+            ins, outs, arrays = {}, {}, {}
             for pc in inst.portConnections:
                 name = pc.port.name
                 if name in self.clocks:
                     continue
                 where = f"{rel}.{name}"
-                key = (f"{path}.{name}<unconnected>" if pc.expression is None
-                       else self._key(pc.expression, where))
                 d = pc.port.direction
-                if d == ast.ArgumentDirection.In:
-                    ins[name] = key
-                elif d == ast.ArgumentDirection.Out:
-                    outs[name] = key
-                else:
+                if d not in (ast.ArgumentDirection.In, ast.ArgumentDirection.Out):
                     raise NetlistError(f"{where}: {d.name} ports are not supported")
-            self.raw_leaves.append((rel, module, params, ins, outs))
+                side = ins if d == ast.ArgumentDirection.In else outs
+                idx = _elements(pc.port.type, where)
+                if idx is None:
+                    side[name] = (f"{path}.{name}<unconnected>" if pc.expression is None
+                                  else self._key(pc.expression, where))
+                    continue
+                keys = ([f"{path}.{name}[{i}]<unconnected>" for i in idx]
+                        if pc.expression is None else self._keys(pc.expression, where)[0])
+                if len(keys) != len(idx):
+                    raise NetlistError(f"{where}: array of {len(keys)} elements on a port "
+                                       f"of {len(idx)}")
+                arrays[name] = [f"{name}[{i}]" for i in idx]
+                for elem, key in zip(arrays[name], keys):
+                    side[elem] = key
+            self.raw_leaves.append((rel, module, params, ins, outs, arrays))
             return
         # structural module: alias its ports to the outer nets, then walk in
         for pc in inst.portConnections:
             if pc.port.name in self.clocks or pc.expression is None:
                 continue
+            where = f"{rel}.{pc.port.name}"
             inner = pc.port.internalSymbol.hierarchicalPath
-            self._union(inner, self._key(pc.expression, f"{rel}.{pc.port.name}"))
+            idx = _elements(pc.port.type, where)
+            inner_keys = (inner, None) if idx is None else ([f"{inner}[{i}]" for i in idx], idx)
+            self._union_keys(inner_keys, self._keys(pc.expression, where), where)
         self._walk(inst.body, is_top=False)
 
     # --- result ---------------------------------------------------------------
     def build(self) -> Netlist:
         self._walk(self.tb.body, is_top=True)
 
-        tb_signals = [m.name for m in self.tb.body
-                      if m.kind in (SK.Variable, SK.Net) and m.name not in self.clocks]
+        tb_signals, widths = [], {}
+        for m in self.tb.body:
+            if m.kind not in (SK.Variable, SK.Net) or m.name in self.clocks:
+                continue
+            idx = _elements(m.type, f"{self.tb.name}.{m.name}")
+            if idx is None:
+                tb_signals.append(m.name)
+                widths[m.name] = m.type.bitWidth
+            else:                                  # one TB signal per element
+                for i in idx:
+                    tb_signals.append(f"{m.name}[{i}]")
+                    widths[f"{m.name}[{i}]"] = m.type.arrayElementType.bitWidth
         tb_key = {n: f"{self.tb.name}.{n}" for n in tb_signals}
-        widths = {m.name: m.type.bitWidth for m in self.tb.body
-                  if m.kind in (SK.Variable, SK.Net) and m.name not in self.clocks}
 
         index: Dict[str, int] = {}
         names: List[str] = []
@@ -194,24 +266,27 @@ class _Builder:
             net(tb_key[n])
 
         leaves, drivers = [], {}
-        for rel, module, params, ins, outs in self.raw_leaves:
+        for rel, module, params, ins, outs, arrays in self.raw_leaves:
             leaf = Leaf(rel, module, params,
                         {p: net(k) for p, k in ins.items()},
-                        {p: net(k) for p, k in outs.items()})
+                        {p: net(k) for p, k in outs.items()}, arrays)
             for port, n in leaf.outputs.items():
                 if n in drivers:
                     raise NetlistError(
                         f"net '{names[n]}' has two drivers: {drivers[n]} and {rel}.{port}")
                 drivers[n] = f"{rel}.{port}"
-            bad = self.components[module].comb - set(leaf.outputs)
+            bad = self.components[module].comb - set(leaf.outputs) - set(arrays)
             if bad:
                 raise NetlistError(
                     f"component for '{module}' marks {sorted(bad)} as comb, "
                     f"but the RTL has no such outputs")
             leaves.append(leaf)
 
-        inputs, outputs = {}, {}
+        inputs, outputs, seen = {}, {}, set()
         for n in tb_signals:
             i = net(tb_key[n])
+            if i in seen:          # another name for a TB signal already listed
+                continue
+            seen.add(i)
             (outputs if i in drivers else inputs)[n] = i
         return Netlist(self.tb.name, names, inputs, outputs, leaves, widths)

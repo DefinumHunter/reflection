@@ -24,25 +24,61 @@ class CombLoopError(Exception):
     pass
 
 
+def _port(name: str) -> str:
+    """Port an element net belongs to: "d[3]" -> "d"."""
+    return name.split("[", 1)[0]
+
+
 class _Inst:
+    """One golden. The model works with element nets ("d[3]"); the golden sees
+    array ports as lists ({"d": [v0, v1, ...]}) and returns them as lists."""
+
     def __init__(self, leaf, spec, init: dict):
         self.leaf = leaf
+        self.arrays = leaf.arrays or {}
         self.golden = spec.golden(**leaf.params, **init)
-        self.comb = {p: n for p, n in leaf.outputs.items() if p in spec.comb}
-        self.wait = {p: n for p, n in leaf.outputs.items() if p not in spec.comb}
+        self.comb = {p: n for p, n in leaf.outputs.items() if _port(p) in spec.comb}
+        self.wait = {p: n for p, n in leaf.outputs.items() if _port(p) not in spec.comb}
         self.in_nets = set(leaf.inputs.values())
+        self.out_ports = {_port(p) for p in leaf.outputs}
         start = self.golden.start() if hasattr(self.golden, "start") else {}
-        self.pending = {p: start.get(p) for p in self.wait}
+        self.pending = {p: v for p, v in self._flat(start or {}, partial=True).items()
+                        if p in self.wait}
+        for p in self.wait:
+            self.pending.setdefault(p, None)
+
+    def _flat(self, out: dict, partial=False) -> dict:
+        """Golden's {port: value or list} -> {element net name: value}."""
+        flat = {}
+        for port, v in out.items():
+            elems = self.arrays.get(port)
+            if elems is None:
+                flat[port] = v
+                continue
+            if v is None:
+                v = [None] * len(elems)
+            if not isinstance(v, (list, tuple)) or len(v) != len(elems):
+                raise ValueError(f"golden of '{self.leaf.path}' ({self.leaf.module}): "
+                                 f"'{port}' is an array of {len(elems)}, "
+                                 f"got {v!r:.60}")
+            flat.update(zip(elems, v))
+        return flat
 
     def fire(self, values: list) -> dict:
-        ins = {p: values[n] for p, n in self.leaf.inputs.items()}
+        ins = {}
+        for p, n in self.leaf.inputs.items():
+            if _port(p) not in self.arrays:
+                ins[p] = values[n]
+        for port, elems in self.arrays.items():
+            if elems[0] in self.leaf.inputs:
+                ins[port] = [values[self.leaf.inputs[e]] for e in elems]
         out = self.golden.tick(ins)
-        missing = set(self.leaf.outputs) - set(out)
-        extra = set(out) - set(self.leaf.outputs)
+        missing = self.out_ports - set(out)
+        extra = set(out) - self.out_ports
         if missing or extra:
             raise KeyError(f"golden of '{self.leaf.path}' ({self.leaf.module}): "
                            f"missing outputs {sorted(missing)}, unknown outputs {sorted(extra)}")
-        return out
+        return self._flat(out)
 
     def take_tags(self) -> list:
         """Coverage tags the golden collected during this tick (and forget them)."""

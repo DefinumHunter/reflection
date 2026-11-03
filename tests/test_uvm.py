@@ -33,6 +33,7 @@ def broken(module, tmp_path, fname, old, new):
 @pytest.mark.parametrize("module,params", [
     ("mac_q16", None), ("mac_q16", {"PIPELINE_STAGES": 7}),
     ("pe_mac_wrapper", None), ("pe_mac_wrapper", {"PIPELINE_STAGES": 2}),
+    ("vec_reg", None),
 ])
 def test_bench_passes_on_correct_rtl(tmp_path, module, params):
     assert run(module, tmp_path, params=params) == 0
@@ -99,3 +100,8 @@ def test_coverage_is_saved_even_when_the_scoreboard_fails(tmp_path):
                    "assign round  = guard & sticky;")
     assert run("mac_q16", tmp_path, sources=files) == 1
     assert (tmp_path / "sim" / "coverage.json").exists()
+
+
+def test_bench_catches_wrong_lane_in_array(tmp_path):
+    files = broken("vec_reg", tmp_path, "vec_reg.sv", "a[i] + k + 8'(i)", "a[0] + k + 8'(i)")
+    assert run("vec_reg", tmp_path, sources=files) == 1

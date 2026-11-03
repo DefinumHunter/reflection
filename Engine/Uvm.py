@@ -32,6 +32,14 @@ def read(handle):
     return v.to_unsigned() if hasattr(v, "to_unsigned") else int(v)
 
 
+def handle(dut, name):
+    """Handle of a TB signal by its model name; array elements as "d[3]"."""
+    if "[" not in name:
+        return getattr(dut, name)
+    base, index = name[:-1].split("[")
+    return getattr(dut, base)[int(index)]
+
+
 def write(handle, value):
     handle.value = LogicArray("X" * len(handle)) if value is None else value
 
@@ -189,7 +197,7 @@ class Env(uvm_env):
 
     def build_phase(self):
         clk = getattr(self.dut, self.clock)
-        handles = lambda names: {n: getattr(self.dut, n) for n in names}
+        handles = lambda names: {n: handle(self.dut, n) for n in names}
         self.seqr = uvm_sequencer("seqr", self)
         self.driver = Driver("driver", self, clk, handles(self.model.inputs))
         self.in_mon = Monitor("in_mon", self, clk, handles(self.model.inputs))

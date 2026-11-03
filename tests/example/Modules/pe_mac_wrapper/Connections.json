@@ -1,0 +1,26 @@
+{
+  "scope": "dut",
+  "connections": {
+    "rst_n":      ["u_mux.rst_n", "u_mac.rst_n"],
+    "local_data": ["u_mux.local_data"],
+    "sub":        ["u_mux.sub"],
+    "in_a":       ["u_mux.in_a"],
+    "in_b":       ["u_mux.in_b"],
+    "sel":        ["u_mux.sel"],
+    "in_id":      ["u_mux.in_id"],
+    "issue_vld":  ["u_mux.issue_vld"],
+    "mac_sel_in": ["u_mux.issue_sel"],
+
+    "u_mux.a_out":   ["u_mac.in_a"],
+    "u_mux.b_out":   ["u_mac.in_b"],
+    "u_mux.out_vld": ["u_mac.in_vld"],
+    "u_mux.out_sel": ["u_mac.sel"],
+    "u_mux.out_id":  ["u_mac.in_id"],
+
+    "u_mac.out_res": ["out_res"],
+    "u_mac.out_vld": ["out_vld"],
+    "u_mac.out_sel": ["out_sel"],
+    "u_mac.out_id":  ["out_id"],
+    "u_mac.busy":    ["busy"]
+  }
+}

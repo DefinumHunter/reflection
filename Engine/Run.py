@@ -4,6 +4,7 @@
     python -m Engine.Run mac_q16 PIPELINE_STAGES=6
     python -m Engine.Run pe_mac_wrapper seed=1234     (reproduce a failing run)
     python -m Engine.Run pe_mac_wrapper seeds=20      (seeds 1..20, coverage merged)
+    python -m Engine.Run --all                        (every module that has a test)
 
 Returns / exits with the number of failed tests (0 = pass).
 The coverage of the last run is in sim_build/<module>/coverage.json.
@@ -34,7 +35,8 @@ def run(module, params=None, sources=None, tail=20, waves=False, build_dir=None,
            **({"REFLECTION_SEED": str(seed)} if seed is not None else {}),
            "REFLECTION_COVERAGE": str(Path(build_dir) / "coverage.json"),
            "REFLECTION_SOURCES": json.dumps([str(f) for f in sources] if sources else None),
-           "PYTHONPATH": os.pathsep.join(filter(None, [str(Project.ROOT),
+           "REFLECTION_ROOT": str(Project.ROOT),
+           "PYTHONPATH": os.pathsep.join(filter(None, [str(Project.ROOT), str(Project.ENGINE_ROOT),
                                                        os.environ.get("PYTHONPATH")]))}
     results = Path(build_dir) / "results.xml"
     results.unlink(missing_ok=True)   # never read a previous run's verdict
@@ -67,10 +69,23 @@ def regress(module, seeds, params=None, build_dir=None):
     return failed, merged
 
 
+def run_all():
+    """Every module that has a test, one run each. Returns the number that failed."""
+    names = Project.modules()
+    if not names:
+        print("no modules with a test yet (Modules/<module>/Test.py)")
+        return 0
+    failed = [m for m in names if run(m)]
+    print(f"\n{len(names)} modules, {len(failed)} failed" + (f": {failed}" if failed else ""))
+    return len(failed)
+
+
 def main(argv):
     if not argv:
         print(__doc__)
         return 2
+    if argv[0] == "--all":
+        return run_all()
     module = argv[0]
     params, seed, seeds = {}, None, None
     for arg in argv[1:]:

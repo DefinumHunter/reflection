@@ -212,7 +212,7 @@ def test_tags_do_not_change_results():
 
 # --- the project modules ----------------------------------------------------------
 
-@pytest.mark.parametrize("module", sorted(Project.MODULES))
+@pytest.mark.parametrize("module", Project.modules())
 @pytest.mark.parametrize("seed", [None, 2, 3])
 def test_module_tests_close_their_coverage(module, seed):
     data = Project.dry_run(module, seed)

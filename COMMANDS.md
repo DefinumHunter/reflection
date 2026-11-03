@@ -16,6 +16,14 @@ cd ~/reflection
 ## Тесты и симуляция
 
 ```bash
+python -m Engine.MakeTb w_normalize          # make hardware/tb/tb_w_normalize.sv from the ports
+python -m Engine.MakeTb --all                # TB for every RTL module that has none
+python -m Engine.Run --all                   # UVM bench for every module that has a test
+```
+
+`pytest` ниже проверяет сам движок на учебном проекте `tests/example/`, а не твои модули. Твои модули проверяет `Engine.Run`.
+
+```bash
 python -m pytest tests -q                    # all tests (model, generator, UVM)
 python -m pytest tests -v                    # same, one line per test
 python -m pytest tests/test_uvm.py -q        # only the UVM bench
@@ -24,8 +32,7 @@ python -m pytest tests -x                    # stop at the first failure
 ```
 
 ```bash
-python -m Engine.Run mac_q16                         # UVM bench for one module
-python -m Engine.Run pe_mac_wrapper
+python -m Engine.Run w_normalize                     # UVM bench for one module
 python -m Engine.Run mac_q16 PIPELINE_STAGES=7       # override a TB parameter
 python -m Engine.Run pe_mac_wrapper seed=1234        # repeat a run with a given seed
 ```

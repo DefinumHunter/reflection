@@ -1,7 +1,8 @@
 // Small fixtures for the netlist/model engine. Not part of the accelerator.
 
 module inc8 (input logic [7:0] a, output logic [7:0] y);
-    assign y = a + 8'd1;
+    localparam logic [7:0] ONE = 8'd1;   // localparams are not passed to the golden
+    assign y = a + ONE;
 endmodule
 
 module reg8 (input logic clk, input logic [7:0] d, output logic [7:0] q);

@@ -65,3 +65,63 @@ def test_tb_parameter_override():
 def test_missing_component_for_behavioural_module_is_an_error():
     with pytest.raises(NetlistError, match="u_reg.*no component"):
         load([FIX], "tb_counter", {"inc8": INC})
+
+
+# --- unpacked arrays ----------------------------------------------------------
+
+ARR = [Path(__file__).resolve().parent / "rtl" / f for f in ("arrays.sv", "arrays_tb.sv")]
+
+
+class Vadd3:
+    def tick(self, i):
+        assert isinstance(i["a"], list) and len(i["a"]) == 3     # array port = list
+        return {"y": [(v + i["k"] + n) & 0xFF for n, v in enumerate(i["a"])]}
+
+
+class Sum3:
+    def tick(self, i):
+        return {"s": sum(i["v"]) & 0xFF}
+
+
+ARRAYS = {"vadd3": LeafSpec(module="vadd3", golden=Vadd3, comb={"y"}),
+          "sum3": LeafSpec(module="sum3", golden=Sum3, comb={"s"}),
+          "inc8": INC}
+
+
+def test_array_ports_become_one_tb_signal_per_element():
+    nl = load(ARR, "tb_arrays", ARRAYS)       # also: default timescale for arrays.sv
+    assert list(nl.inputs) == ["a[0]", "a[1]", "a[2]", "k"]
+    assert list(nl.outputs) == ["y[0]", "y[1]", "y[2]", "s"]
+    assert all(nl.widths[n] == 8 for n in [*nl.inputs, *nl.outputs])
+    u1 = next(l for l in nl.leaves if l.path == "dut.u1")
+    assert u1.arrays == {"a": ["a[0]", "a[1]", "a[2]"], "y": ["y[0]", "y[1]", "y[2]"]}
+
+
+def test_goldens_see_arrays_as_lists_and_arrays_connect_by_position():
+    m = Model.from_rtl(ARR, "tb_arrays", ARRAYS)
+    out = m.step({"a[0]": 10, "a[1]": 20, "a[2]": 30, "k": 1})
+    y = [10 + 1 + 0 + 1 + 0, 20 + 1 + 1 + 1 + 1, 30 + 1 + 2 + 1 + 2]   # through u1, then u2
+    assert [out[f"y[{n}]"] for n in range(3)] == y
+    assert out["s"] == sum(y)
+
+
+def test_array_elements_in_connection_check():
+    from Engine.Connections import actual
+    got = actual(load(ARR, "tb_arrays", ARRAYS), "dut")
+    assert got["a[1]"] == {"u1.a[1]"}
+    assert got["u1.y[0]"] == {"u2.a[0]"}
+    assert got["u2.y[2]"] == {"u3.v[2]", "y[2]"}
+
+
+def test_golden_returning_wrong_array_size_is_reported():
+    class Short:
+        def tick(self, i):
+            return {"y": [0, 0]}
+    comps = {**ARRAYS, "vadd3": LeafSpec(module="vadd3", golden=Short, comb={"y"})}
+    with pytest.raises(ValueError, match="'y' is an array of 3"):
+        Model.from_rtl(ARR, "tb_arrays", comps).step({"a[0]": 0, "a[1]": 0, "a[2]": 0, "k": 0})
+
+
+def test_one_element_of_a_tb_array_on_a_plain_port():
+    m = Model.from_rtl([FIX] + ARR, "tb_pick", ARRAYS)
+    assert m.step({"arr[0]": 0, "arr[1]": 41, "arr[2]": 0})["o"] == 42
