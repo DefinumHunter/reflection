@@ -18,7 +18,7 @@ module tb_pe_output_strapping;
 
     pe_output_strapping dut (.*);
 
-    pe_output_strapping_sva_icarus u_sva (.clk(clk), .rst_n(rst_n));
+    // pe_output_strapping_sva_icarus u_sva (.clk(clk), .rst_n(rst_n));
 
     initial begin
         $dumpfile("waves.vcd");

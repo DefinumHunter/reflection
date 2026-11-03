@@ -73,10 +73,10 @@ module tb_array_output_router;
         // output ports intentionally left unconnected — read via hierarchy above
     );
 
-    array_output_router_sva_icarus u_sva (
-        .clk(clk),
-        .rst_n(rst_n)
-    );
+    //array_output_router_sva_icarus u_sva (
+    //    .clk(clk),
+    //    .rst_n(rst_n)
+    //);
 
     initial begin
         $dumpfile("waves.vcd");

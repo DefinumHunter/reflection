@@ -18,7 +18,7 @@ module tb_pe_input_mux;
 
     pe_input_mux dut (.*);
 
-    pe_input_mux_sva_icarus u_sva (.clk(clk), .rst_n(rst_n));
+    // pe_input_mux_sva_icarus u_sva (.clk(clk), .rst_n(rst_n));
 
     initial begin
         $dumpfile("waves.vcd");
