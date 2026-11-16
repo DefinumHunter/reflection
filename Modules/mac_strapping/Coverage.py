@@ -1,6 +1,6 @@
 """Stimulus coverage and tags from both component golden models."""
 from Engine.Coverage import Op, Tag, Cross
-from .Protocol import MacNeighbor, Reset
+from .Protocol import MacNeighbor, Reset, PIPELINE_STAGES
 
 
 def field(name):
@@ -26,7 +26,7 @@ def sidebands(s):
 def spacing(s):
     if not isinstance(s.op, MacNeighbor):
         return None
-    return "no_gap" if s.gap == 0 else "gap"
+    return "no_gap" if s.gap == -PIPELINE_STAGES else "gap"
 
 
 def reset_position(s):
