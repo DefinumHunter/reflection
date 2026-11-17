@@ -4,6 +4,7 @@
     python -m Engine.Run mac_q16 PIPELINE_STAGES=6
     python -m Engine.Run pe_mac_wrapper seed=1234     (reproduce a failing run)
     python -m Engine.Run pe_mac_wrapper seeds=20      (seeds 1..20, coverage merged)
+    python -m Engine.Run mac_strapping waves=1        (save VCD for GTKWave)
     python -m Engine.Run --all                        (every module that has a test)
 
 Returns / exits with the number of failed tests (0 = pass).
@@ -53,12 +54,12 @@ def run(module, params=None, sources=None, tail=20, waves=False, build_dir=None,
     return failed
 
 
-def regress(module, seeds, params=None, build_dir=None):
+def regress(module, seeds, params=None, build_dir=None, waves=False):
     """Run seeds 1..seeds, merge their coverage. Returns (failed seeds, merged coverage)."""
     build_dir = Path(build_dir or Project.ROOT / "sim_build" / module)
     failed, merged = [], None
     for seed in range(1, seeds + 1):
-        if run(module, params, seed=seed, build_dir=build_dir):
+        if run(module, params, seed=seed, build_dir=build_dir, waves=waves):
             failed.append(seed)
         cov = build_dir / "coverage.json"
         if cov.exists():
@@ -87,19 +88,24 @@ def main(argv):
     if argv[0] == "--all":
         return run_all()
     module = argv[0]
-    params, seed, seeds = {}, None, None
+    params, seed, seeds, waves = {}, None, None, False
     for arg in argv[1:]:
         k, v = arg.split("=", 1)
         v = int(v) if v.lstrip("-").isdigit() else v
-        if k == "seed":
+        if k == "waves":
+            if v not in (0, 1):
+                print("waves must be 0 or 1")
+                return 2
+            waves = bool(v)
+        elif k == "seed":
             seed = v
         elif k == "seeds":
             seeds = v
         else:
             params[k] = v
     if seeds is None:
-        return run(module, params, seed=seed)
-    failed, merged = regress(module, seeds, params)
+        return run(module, params, seed=seed, waves=waves)
+    failed, merged = regress(module, seeds, params, waves=waves)
     print(f"\n{module}: {seeds} seeds, {len(failed)} failed"
           + (f" (seeds {failed}; rerun one with seed=N)" if failed else ""))
     if merged is not None:
