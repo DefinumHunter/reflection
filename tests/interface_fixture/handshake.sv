@@ -33,3 +33,10 @@ module handshake_bad_top;
     handshake_stage stage0(.upstream(in0), .downstream(shared));
     handshake_stage stage1(.upstream(in1), .downstream(shared));
 endmodule
+
+module handshake_single_top;
+    handshake_if source_bus();
+    handshake_if sink_bus();
+
+    handshake_stage dut(.upstream(source_bus), .downstream(sink_bus));
+endmodule
