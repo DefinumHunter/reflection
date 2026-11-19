@@ -154,6 +154,63 @@ class _Builder:
             f"{where}: connection '{str(e.syntax).strip() if e.syntax else e.kind}' "
             f"is not supported yet (only plain names and constant element selects)")
 
+    # --- interface ports -----------------------------------------------------
+    @staticmethod
+    def _interface_connection(pc, where):
+        """Return (connected interface instance, selected modport).
+
+        An interface port has no ordinary direction/type/internalSymbol.
+        Its expression is an ArbitrarySymbol referencing the elaborated
+        interface instance; directions belong to the selected modport.
+        """
+        port = pc.port
+        expr = pc.expression
+        if expr is None or expr.kind != EK.ArbitrarySymbol:
+            raise NetlistError(f"{where}: expected a connected interface instance")
+        iface = expr.symbol
+        if iface is None or iface.kind != SK.Instance:
+            raise NetlistError(f"{where}: interface connection is not an instance")
+
+        modport = getattr(port, "modport", None)
+        if modport is not None and getattr(modport, "kind", None) == SK.Modport:
+            selected = modport.name
+        else:
+            # Some pyslang versions expose the modport name only in the
+            # port declaration syntax rather than as a symbol property.
+            import re
+            syntax_text = str(getattr(port, "syntax", "") or "")
+            match = re.search(r"\\b[A-Za-z_]\\w*\\s*\\.\\s*([A-Za-z_]\\w*)\\b",
+                              syntax_text)
+            selected = match.group(1) if match else None
+
+        modports = [m for m in iface.body if m.kind == SK.Modport]
+        mp = next((m for m in modports if m.name == selected), None)
+        if mp is None:
+            raise NetlistError(
+                f"{where}: cannot resolve modport {selected!r} on "
+                f"{iface.hierarchicalPath}; declare the port with an explicit modport")
+        signals = {m.name: m for m in iface.body
+                   if m.kind in (SK.Variable, SK.Net)}
+        return iface, mp, signals
+
+    def _interface_leaf(self, pc, where, ins, outs):
+        iface, mp, signals = self._interface_connection(pc, where)
+        for member in mp:
+            name = member.name
+            if name not in signals:
+                raise NetlistError(f"{where}: modport member '{name}' is not a signal")
+            direction = member.direction
+            if direction == ast.ArgumentDirection.In:
+                side = ins
+            elif direction == ast.ArgumentDirection.Out:
+                side = outs
+            else:
+                raise NetlistError(f"{where}.{name}: unsupported modport direction "
+                                   f"{direction}")
+            # Dotted port names are plain Python dictionary keys.
+            # Different leaf instances may reference the same interface net.
+            side[f"{pc.port.name}.{name}"] = signals[name].hierarchicalPath
+
     # --- walking ------------------------------------------------------------
     def _rel(self, path: str) -> str:
         prefix = self.tb.name + "."
@@ -205,6 +262,9 @@ class _Builder:
                 if name in self.clocks:
                     continue
                 where = f"{rel}.{name}"
+                if pc.port.kind == SK.InterfacePort:
+                    self._interface_leaf(pc, where, ins, outs)
+                    continue
                 d = pc.port.direction
                 if d not in (ast.ArgumentDirection.In, ast.ArgumentDirection.Out):
                     raise NetlistError(f"{where}: {d.name} ports are not supported")
@@ -229,6 +289,11 @@ class _Builder:
             if pc.port.name in self.clocks or pc.expression is None:
                 continue
             where = f"{rel}.{pc.port.name}"
+            if pc.port.kind == SK.InterfacePort:
+                # The expression already points to the elaborated interface
+                # instance. No intermediate alias needs to be invented.
+                self._interface_connection(pc, where)
+                continue
             inner = pc.port.internalSymbol.hierarchicalPath
             idx = _elements(pc.port.type, where)
             inner_keys = (inner, None) if idx is None else ([f"{inner}[{i}]" for i in idx], idx)
@@ -251,6 +316,24 @@ class _Builder:
                 for i in idx:
                     tb_signals.append(f"{m.name}[{i}]")
                     widths[f"{m.name}[{i}]"] = m.type.arrayElementType.bitWidth
+        # Interface members in the TB are observable nets just like its
+        # ordinary variables. They are not represented as SK.Variable
+        # directly in the TB body, so enumerate elaborated instances.
+        for inst in self.tb.body:
+            if inst.kind != SK.Instance:
+                continue
+            if not any(m.kind == SK.Modport for m in inst.body):
+                continue
+            for m in inst.body:
+                if m.kind not in (SK.Variable, SK.Net):
+                    continue
+                name = f"{inst.name}.{m.name}"
+                idx = _elements(m.type, f"{self.tb.name}.{name}")
+                if idx is not None:
+                    raise NetlistError(f"{name}: unpacked interface arrays "
+                                       "are not supported yet")
+                tb_signals.append(name)
+                widths[name] = m.type.bitWidth
         tb_key = {n: f"{self.tb.name}.{n}" for n in tb_signals}
 
         index: Dict[str, int] = {}
