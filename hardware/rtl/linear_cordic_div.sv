@@ -1,3 +1,5 @@
+`timescale 1ns/1ps
+
 module linear_cordic_div #(
     parameter int W_INT    = 41,
     parameter int GUARD_LO = 5,

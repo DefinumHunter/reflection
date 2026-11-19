@@ -1,3 +1,5 @@
+`timescale 1ns/1ps
+
 module interface_test_pe (
     data_if.sink upstream,
     data_if.source downstream

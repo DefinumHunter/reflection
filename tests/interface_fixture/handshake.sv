@@ -1,3 +1,5 @@
+`timescale 1ns/1ps
+
 interface handshake_if;
     logic [15:0] data;
     logic valid;

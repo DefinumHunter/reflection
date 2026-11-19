@@ -1,3 +1,5 @@
+`timescale 1ns/1ps
+
 module sqrt_postprocess #(
     parameter int W_INT    = 41,   // тракт CORDIC (32 + GUARD_HI + GUARD_LO)
     parameter int W_Q16    = 32,   // финальный формат, как весь остальной массив

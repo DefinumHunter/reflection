@@ -1,3 +1,5 @@
+`timescale 1ns/1ps
+
 module hyperbolic_cordic_sqrt #(
     parameter int W_INT = 41,   // тот же тракт, что и w_normalize (32 Q16.16 + 4 + 5 guard)
     parameter int AW    = W_INT,

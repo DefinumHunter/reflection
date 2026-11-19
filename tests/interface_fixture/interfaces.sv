@@ -1,3 +1,5 @@
+`timescale 1ns/1ps
+
 interface data_if;
     logic [31:0] data;
     logic valid;

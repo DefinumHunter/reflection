@@ -4,7 +4,6 @@
 // No logic here: the bench drives and samples these signals.
 
 module tb_pe_output_strapping;
-    parameter int CHECK_NEIGHBOR = 1;
 
     logic               clk;
     logic               rst_n;
@@ -23,7 +22,7 @@ module tb_pe_output_strapping;
     logic               idle;
     logic               error;
 
-    pe_output_strapping #(.CHECK_NEIGHBOR(CHECK_NEIGHBOR)) dut (.*);
+    pe_output_strapping dut (.*);
 
     initial begin
         $dumpfile("waves.vcd");

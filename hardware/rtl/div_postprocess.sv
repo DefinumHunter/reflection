@@ -1,3 +1,5 @@
+`timescale 1ns/1ps
+
 module div_postprocess #(
     parameter int W_INT    = 41,
     parameter int W_Q16    = 32,

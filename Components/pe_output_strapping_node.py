@@ -39,8 +39,7 @@ class PeOutputStrapping:
     Result: 2 clocks after mac_vld. Reset clears only the valids and error.
     """
 
-    def __init__(self, CHECK_NEIGHBOR=1):
-        self.check = CHECK_NEIGHBOR
+    def __init__(self):
         self.tags = []
         # power-up: everything X
         self.mac = self.neighbor = self.id = self.ring = self.sub = None
@@ -54,8 +53,6 @@ class PeOutputStrapping:
 
     def _match(self, i):
         """The neighbor check of this clock: 1, 0 or None (X)."""
-        if not self.check:
-            return 1
         if i["neighbor_vld"] == 0:
             return 0
         if None in (i["neighbor_vld"], i["neighbor_id"], i["mac_id"]):

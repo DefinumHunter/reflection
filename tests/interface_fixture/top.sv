@@ -1,3 +1,5 @@
+`timescale 1ns/1ps
+
 module interface_test_top;
     data_if in0();
     data_if in1();

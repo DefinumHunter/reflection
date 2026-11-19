@@ -1,3 +1,5 @@
+`timescale 1ns/1ps
+
 module w_normalize #(
     parameter int W_Q16  = 32,
     parameter int GUARD_HI = 4,

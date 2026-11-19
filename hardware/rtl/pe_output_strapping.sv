@@ -18,9 +18,7 @@
 //
 // Latency: 2 clocks from mac_vld to out_valid_ring / out_valid_final.
 
-module pe_output_strapping #(
-    parameter bit CHECK_NEIGHBOR = 1
-) (
+module pe_output_strapping (
     input  logic               clk,
     input  logic               rst_n,
 
@@ -51,7 +49,7 @@ module pe_output_strapping #(
     logic               valid_reg;
     logic               match;
 
-    assign match = !CHECK_NEIGHBOR || (neighbor_vld && neighbor_id == mac_id);
+    assign match = (neighbor_vld && neighbor_id == mac_id);
 
     always_ff @(posedge clk) begin
         if (!rst_n) begin

@@ -1,3 +1,5 @@
+`timescale 1ns/1ps
+
 module winnower #(
     parameter int NUM_SLOTS = 9,
     parameter int GROUPS    = 3
