@@ -186,6 +186,12 @@ class _Builder:
         modports = [m for m in iface.body if m.kind == SK.Modport]
         mp = next((m for m in modports if m.name == selected), None)
         if mp is None:
+            print("PORT:", pc.port.name)
+            print("PORT KIND:", pc.port.kind)
+            print("PORT TYPE:", type(pc.port))
+            print("PORT ATTRS:", [x for x in dir(pc.port) if not x.startswith("_")])
+            print("PORT SYNTAX:", pc.port.syntax)
+            print("PORT HEADER:", getattr(pc.port, "header", None))
             raise NetlistError(
                 f"{where}: cannot resolve modport {selected!r} on "
                 f"{iface.hierarchicalPath}; declare the port with an explicit modport")
