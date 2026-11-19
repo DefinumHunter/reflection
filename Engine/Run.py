@@ -1,7 +1,8 @@
-"""Build and run the UVM test for one module in Icarus, no make needed.
+"""Build and run the UVM test for one module with Icarus or Verilator.
 
     python -m Engine.Run pe_mac_wrapper
     python -m Engine.Run mac_q16 PIPELINE_STAGES=6
+    python -m Engine.Run pe_mac_wrapper simulator=verilator
     python -m Engine.Run pe_mac_wrapper seed=1234     (reproduce a failing run)
     python -m Engine.Run pe_mac_wrapper seeds=20      (seeds 1..20, coverage merged)
     python -m Engine.Run mac_strapping waves=1        (save VCD for GTKWave)
@@ -21,13 +22,13 @@ import Project
 from Engine import Coverage
 
 
-def run(module, params=None, sources=None, tail=20, waves=False, build_dir=None, seed=None):
+def run(module, params=None, sources=None, tail=20, waves=False, build_dir=None, seed=None, simulator="icarus"):
     """sources: override the file list (e.g. a deliberately broken RTL copy).
     seed: override the test's SEED."""
     params = params or {}
     tb = Project.tb(module)
     build_dir = build_dir or Project.ROOT / "sim_build" / module
-    runner = get_runner("icarus")
+    runner = get_runner(simulator)
     runner.build(sources=sources or Project.sources(module), hdl_toplevel=tb,
                  parameters=params, build_dir=build_dir, always=True, waves=waves)
     env = {"REFLECTION_MODULE": module,
@@ -88,7 +89,7 @@ def main(argv):
     if argv[0] == "--all":
         return run_all()
     module = argv[0]
-    params, seed, seeds, waves = {}, None, None, False
+    params, seed, seeds, waves, simulator = {}, None, None, False, "icarus"
     for arg in argv[1:]:
         k, v = arg.split("=", 1)
         v = int(v) if v.lstrip("-").isdigit() else v
@@ -97,14 +98,22 @@ def main(argv):
                 print("waves must be 0 or 1")
                 return 2
             waves = bool(v)
+        elif k == "simulator":
+            if v not in ("icarus", "verilator"):
+                print("simulator must be icarus or verilator")
+                return 2
+            simulator = v
         elif k == "seed":
             seed = v
         elif k == "seeds":
             seeds = v
         else:
             params[k] = v
+    if seeds is not None and simulator != "icarus":
+        print("simulator selection for multi-seed regression is not implemented yet")
+        return 2
     if seeds is None:
-        return run(module, params, seed=seed, waves=waves)
+        return run(module, params, seed=seed, waves=waves, simulator=simulator)
     failed, merged = regress(module, seeds, params, waves=waves)
     print(f"\n{module}: {seeds} seeds, {len(failed)} failed"
           + (f" (seeds {failed}; rerun one with seed=N)" if failed else ""))
