@@ -171,27 +171,11 @@ class _Builder:
         if iface is None or iface.kind != SK.Instance:
             raise NetlistError(f"{where}: interface connection is not an instance")
 
-        modport = getattr(port, "modport", None)
-        if modport is not None and getattr(modport, "kind", None) == SK.Modport:
-            selected = modport.name
-        else:
-            # Some pyslang versions expose the modport name only in the
-            # port declaration syntax rather than as a symbol property.
-            import re
-            syntax_text = str(getattr(port, "syntax", "") or "")
-            match = re.search(r"\\b[A-Za-z_]\\w*\\s*\\.\\s*([A-Za-z_]\\w*)\\b",
-                              syntax_text)
-            selected = match.group(1) if match else None
+        selected = port.modport
 
         modports = [m for m in iface.body if m.kind == SK.Modport]
         mp = next((m for m in modports if m.name == selected), None)
         if mp is None:
-            print("PORT:", pc.port.name)
-            print("PORT KIND:", pc.port.kind)
-            print("PORT TYPE:", type(pc.port))
-            print("PORT ATTRS:", [x for x in dir(pc.port) if not x.startswith("_")])
-            print("PORT SYNTAX:", pc.port.syntax)
-            print("PORT HEADER:", getattr(pc.port, "header", None))
             raise NetlistError(
                 f"{where}: cannot resolve modport {selected!r} on "
                 f"{iface.hierarchicalPath}; declare the port with an explicit modport")
